@@ -15,12 +15,12 @@ logging.basicConfig(level=logging.INFO)
 
 TOKEN = os.getenv('BOT_TOKEN')
 if not TOKEN:
-    raise ValueError("BOT_TOKEN не найден в .env!")
+    raise ValueError("BOT_TOKEN не найден! Добавьте в .env или в Variables на хостинге.")
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# === Хранилище сообщений для очистки чата ===
+# === Хранилище для очистки чата ===
 class MessageStore:
     def __init__(self):
         self.user_messages = {}
@@ -40,7 +40,7 @@ class MessageStore:
             except TelegramBadRequest:
                 pass
             except Exception as e:
-                logging.error(f"Ошибка удаления {message_id}: {e}")
+                logging.error(f"Ошибка удаления сообщения {message_id}: {e}")
         self.user_messages[user_id].clear()
 
 message_store = MessageStore()
@@ -58,7 +58,7 @@ def main_menu_kb():
 
 def rules_full_kb():
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_main")]
+        [InlineKeyboardButton(text="⬅️ Назад в меню", callback_data="back_to_main")]
     ])
 
 def instructions_kb():
@@ -66,19 +66,23 @@ def instructions_kb():
         [InlineKeyboardButton(text="🚪 Дверь", callback_data="instruction_door")],
         [InlineKeyboardButton(text="🔥 Варочная панель", callback_data="instruction_stove")],
         [InlineKeyboardButton(text="⚠️ Ошибка на варочной панели", callback_data="instruction_stove_error")],
-        [InlineKeyboardButton(text="🔥 Банная печь", callback_data="instruction_sauna_stove")],
-        [InlineKeyboardButton(text="☕ Кофемашина", callback_data="instruction_coffee")],
-        [InlineKeyboardButton(text="🍳 Духовка", callback_data="instruction_oven")],
         [InlineKeyboardButton(text="🧼 Посудомойка", callback_data="instruction_dishwasher")],
         [InlineKeyboardButton(text="🚧 Ворота", callback_data="instruction_gate")],
-        [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_main")]
+        [InlineKeyboardButton(text="⬅️ Назад в меню", callback_data="back_to_main")]
+    ])
+
+def instruction_video_kb():
+    """Кнопки под КАЖДЫМ видео (в т.ч. в Правилах парной)"""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⬅️ Назад к инструкциям", callback_data="show_instructions")],
+        [InlineKeyboardButton(text="🏠 В главное меню", callback_data="back_to_main")]
     ])
 
 def contact_kb():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📱 WhatsApp", url="https://wa.me/79958847694")],
         [InlineKeyboardButton(text="📲 Telegram", url="https://t.me/+79958847694")],
-        [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_main")]
+        [InlineKeyboardButton(text="⬅️ Назад в меню", callback_data="back_to_main")]
     ])
 
 def social_kb():
@@ -98,7 +102,7 @@ def places_kb(index: int, total: int, url: str):
         [InlineKeyboardButton(text="⬅️ Назад в меню", callback_data="back_to_main")]
     ])
 
-# === Данные мест ===
+# === Данные интересных мест ===
 PLACES_DATA = [
     {"image": "pic/1.png", "url": "https://pt-zapovednik.ru/"},
     {"image": "pic/2.png", "url": "https://straus.ru/"},
@@ -129,34 +133,13 @@ async def start_handler(message: types.Message):
 
     rules_text = (
         "📋 <b>ПРАВИЛА ПРОЖИВАНИЯ</b>\n\n"
-        "☀️ <b>Теплые полы:</b>\n"
-        "• Только для комфорта ног\n"
-        "• Не выше 27°C\n"
-        "• НЕ оставлять вещи на полу - ЭТО ПОЖАРООПАСНО\n"
-        "• НЕ передвигать мебель\n\n"
-        "🚗 <b>Парковка:</b>\n"
-        "• Только в пределах парковочных мест\n"
-        "• Рассчитана на 2 авто\n\n"
-        "🏠 <b>Имущество:</b>\n"
-        "Если что-то случайно сломалось или разбилось, просим сообщить о произошедшем. Так мы сможем успеть купить или починить перед следующим заездом.\n"
-        "• Намеренная или дорогостоящая порча имущества - высчитывается из депозита.\n\n"
-        "🧹 <b>Чистота:</b>\n"
-        "Просим вас перед отъездом помыть посуду, собрать и выбросить мусор в зеленый бак.\n"
-        "Если вы не успеваете, то мы можем сделать это за вас:\n"
-        "• Помыть посуду - от 300 руб.\n"
-        "• Вынести мусор - от 500 руб.\n"
-        "• Уборка территории от мусора - от 1000 руб.\n"
-        "• Уборка за питомцем - от 2000 руб.\n"
-        "• Убрать листья от веников - от 500 руб.\n"
-        "• Отмыть стены и потолок от грязи в парной - от 5000 руб.\n\n"
-        "🚭 <b>Курение:</b>\n"
-        "• В доме и на веранде курение сигарет, кальянов и любых нагревательных систем под запретом\n"
-        "• 10.000 руб. за озонирование\n"
-        "• Окурки только в пепельницы\n\n"
-        "⚠️ <b>Безопасность:</b>\n"
-        "• Костер только в костровой зоне\n"
-        "• НЕ отключать электрощиток, камеры, бойлер\n"
-        "• НЕ сушить одежду на конвекторах\n\n"
+        "☀️ <b>Теплые полы:</b>\n• Только для комфорта ног\n• Не выше 27°C\n• НЕ оставлять вещи на полу - ЭТО ПОЖАРООПАСНО\n• НЕ передвигать мебель\n\n"
+        "🚗 <b>Парковка:</b>\n• Только в пределах парковочных мест\n• Рассчитана на 2 авто\n\n"
+        "🏠 <b>Имущество:</b>\nЕсли что-то случайно сломалось или разбилось, просим сообщить о произошедшем. Так мы сможем успеть купить или починить перед следующим заездом.\n• Намеренная или дорогостоящая порча имущества - высчитывается из депозита.\n\n"
+        "🧹 <b>Чистота:</b>\nПросим вас перед отъездом помыть посуду, собрать и выбросить мусор в зеленый бак.\nЕсли вы не успеваете, то мы можем сделать это за вас:\n"
+        "• Помыть посуду - от 300 руб.\n• Вынести мусор - от 500 руб.\n• Уборка территории от мусора - от 1000 руб.\n• Уборка за питомцем - от 2000 руб.\n• Убрать листья от веников - от 500 руб.\n• Отмыть стены и потолок от грязи в парной - от 5000 руб.\n\n"
+        "🚭 <b>Курение:</b>\n• В доме и на веранде курение сигарет, кальянов и любых нагревательных систем под запретом\n• 10.000 руб. за озонирование\n• Окурки только в пепельницы\n\n"
+        "⚠️ <b>Безопасность:</b>\n• Костер только в костровой зоне\n• НЕ отключать электрощиток, камеры, бойлер\n• НЕ сушить одежду на конвекторах\n\n"
         "<b>Соблюдение правил - залог вашей безопасности и комфортного отдыха!</b>\n\n"
         "<i>Нажмите «✅ Я согласен», чтобы продолжить</i>"
     )
@@ -244,9 +227,6 @@ async def handle_instruction(callback: types.CallbackQuery):
         'door': "🚪 <b>Инструкция: Как открыть/закрыть дверь</b>",
         'stove': "🔥 <b>Инструкция: Варочная панель</b>",
         'stove_error': "⚠️ <b>Ошибка на варочной панели</b>\nКак снять блокировку и сбросить ошибку",
-        'sauna_stove': "🔥 <b>Инструкция: Банная печь</b>\nКак правильно топить и поддерживать жар",
-        'coffee': "☕ <b>Инструкция: Кофемашина</b>\nПриготовление кофе и уход",
-        'oven': "🍳 <b>Инструкция: Духовка</b>\nРежимы и безопасное использование",
         'dishwasher': "🧼 <b>Инструкция: Посудомоечная машина</b>\nЗагрузка и запуск",
         'gate': "🚧 <b>Инструкция: Ворота</b>\nОткрытие и блокировка"
     }
@@ -255,9 +235,6 @@ async def handle_instruction(callback: types.CallbackQuery):
         'door': "door_instruction.mp4",
         'stove': "stove_instruction.mp4",
         'stove_error': "stove_error_instruction.mp4",
-        'sauna_stove': "sauna_stove_instruction.mp4",
-        'coffee': "coffee_instruction.mp4",
-        'oven': "oven_instruction.mp4",
         'dishwasher': "dishwasher_instruction.mp4",
         'gate': "gate_instruction.mp4"
     }
@@ -269,16 +246,23 @@ async def handle_instruction(callback: types.CallbackQuery):
         return
 
     video_path = f"videos/{filename}"
+
     try:
         video = FSInputFile(video_path)
         sent = await callback.message.answer_video(
             video=video,
             caption=captions.get(instr, "<b>Видеоинструкция</b>"),
-            parse_mode="HTML"
+            parse_mode="HTML",
+            reply_markup=instruction_video_kb()  # ← КНОПКИ ЕСТЬ ЗДЕСЬ!
         )
         await message_store.add(callback.from_user.id, sent.message_id)
-    except Exception:
-        sent = await callback.message.answer("📹 <b>Видеоинструкция временно недоступна</b>")
+    except Exception as e:
+        logging.error(f"Ошибка загрузки видео {filename}: {e}")
+        sent = await callback.message.answer(
+            "📹 <b>Видеоинструкция временно недоступна</b>",
+            parse_mode="HTML",
+            reply_markup=instruction_video_kb()  # ← И ПРИ ОШИБКЕ ТОЖЕ!
+        )
         await message_store.add(callback.from_user.id, sent.message_id)
     await callback.answer()
 
@@ -342,22 +326,20 @@ async def show_sauna_rules(callback: types.CallbackQuery):
             video=video,
             caption="🔥 <b>Как правильно топить банную печь</b>",
             parse_mode="HTML",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="⬅️ Назад в меню", callback_data="back_to_main")]
-            ])
+            reply_markup=instruction_video_kb()  # ← КНОПКИ ЕСТЬ И ЗДЕСЬ!
         )
         await message_store.add(callback.from_user.id, video_msg.message_id)
-    except Exception:
+    except Exception as e:
+        logging.error(f"Ошибка загрузки видео банной печи: {e}")
         error_msg = await callback.message.answer(
             "📹 Видео временно недоступно",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="⬅️ Назад в меню", callback_data="back_to_main")]
-            ])
+            parse_mode="HTML",
+            reply_markup=instruction_video_kb()
         )
         await message_store.add(callback.from_user.id, error_msg.message_id)
     await callback.answer()
 
-# === Места и навигация ===
+# === Интересные места ===
 @dp.callback_query(F.data == "show_places")
 async def show_places_menu(callback: types.CallbackQuery):
     await message_store.clean(bot, callback.from_user.id, callback.message.chat.id)
@@ -396,9 +378,9 @@ async def handle_place_navigation(callback: types.CallbackQuery):
     await show_place(callback, new_index)
     await callback.answer()
 
-# === Запуск ===
+# === Запуск бота ===
 async def main():
-    print("🏡 Дом.Баня.Дача — Бот запущен!")
+    print("🏡 Дом.Баня.Дача — Бот успешно запущен!")
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
 
