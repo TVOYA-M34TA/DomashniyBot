@@ -69,6 +69,7 @@ def instructions_kb():
         [InlineKeyboardButton(text="☕ Кофемашина", callback_data="instruction_coffee")],
         [InlineKeyboardButton(text="🧼 Посудомойка", callback_data="instruction_dishwasher")],
         [InlineKeyboardButton(text="🚧 Ворота", callback_data="instruction_gate")],
+        [InlineKeyboardButton(text="🔥 Парная", callback_data="instruction_sauna")],  # Новая кнопка
         [InlineKeyboardButton(text="⬅️ Назад в меню", callback_data="back_to_main")]
     ])
 
@@ -275,7 +276,8 @@ async def handle_instruction(callback: types.CallbackQuery):
         'stove_error': "⚠️ <b>Ошибка на варочной панели</b>\nКак снять блокировку и сбросить ошибку",
         'coffee': "☕ <b>Инструкция: Кофемашина</b>\nПриготовление кофе и уход",
         'dishwasher': "🧼 <b>Инструкция: Посудомоечная машина</b>\nЗагрузка и запуск",
-        'gate': "🚧 <b>Инструкция: Ворота</b>\nОткрытие и блокировка"
+        'gate': "🚧 <b>Инструкция: Ворота</b>\nОткрытие и блокировка",
+        'sauna': "🔥 <b>Инструкция: Парная</b>\nКак правильно топить банную печь"  # Добавлен заголовок для парной
     }
 
     video_files = {
@@ -284,7 +286,8 @@ async def handle_instruction(callback: types.CallbackQuery):
         'stove_error': "stove_error_instruction.mp4",
         'coffee': "coffee_instruction.mp4",
         'dishwasher': "dishwasher_instruction.mp4",
-        'gate': "gate_instruction.mp4"
+        'gate': "gate_instruction.mp4",
+        'sauna': "sauna_stove_instruction.mp4"  # Добавлено видео для парной
     }
 
     filename = video_files.get(instr)
@@ -302,8 +305,8 @@ async def handle_instruction(callback: types.CallbackQuery):
     if not os.path.exists(video_path):
         logging.error(f"ФАЙЛ НЕ НАЙДЕН: {video_path}")
         await callback.message.answer(
-            "📹 <b>Видеоинструкция по кофемашине временно недоступна</b>\n\n"
-            "Файл не найден на сервере. Скоро исправим!",
+            f"📹 <b>Видеоинструкция временно недоступна</b>\n\n"
+            f"Файл не найден на сервере. Скоро исправим!",
             parse_mode="HTML",
             reply_markup=instruction_video_kb()
         )
@@ -319,8 +322,8 @@ async def handle_instruction(callback: types.CallbackQuery):
     if file_size_mb > 50:
         logging.warning(f"ВИДЕО СЛИШКОМ БОЛЬШОЕ: {file_size_mb:.1f} МБ")
         await callback.message.answer(
-            "📹 <b>Видеоинструкция по кофемашине временно недоступна</b>\n\n"
-            "Видео слишком большое для загрузки. Работаем над оптимизацией!",
+            f"📹 <b>Видеоинструкция временно недоступна</b>\n\n"
+            f"Видео слишком большое для загрузки. Работаем над оптимизацией!",
             parse_mode="HTML",
             reply_markup=instruction_video_kb()
         )
@@ -343,8 +346,8 @@ async def handle_instruction(callback: types.CallbackQuery):
     except Exception as e:
         logging.error(f"КРИТИЧЕСКАЯ ОШИБКА при отправке {filename}: {e}")
         await callback.message.answer(
-            "📹 <b>Видеоинструкция по кофемашине временно недоступна</b>\n\n"
-            "Произошла ошибка загрузки. Попробуйте позже.",
+            f"📹 <b>Видеоинструкция временно недоступна</b>\n\n"
+            f"Произошла ошибка загрузки. Попробуйте позже.",
             parse_mode="HTML",
             reply_markup=instruction_video_kb()
         )
@@ -352,6 +355,7 @@ async def handle_instruction(callback: types.CallbackQuery):
         await callback.answer()
     except:
         pass
+
 
 @dp.callback_query(F.data == "show_contacts")
 async def show_contacts(callback: types.CallbackQuery):
@@ -415,6 +419,25 @@ async def show_sauna_rules(callback: types.CallbackQuery):
     await message_store.add(callback.from_user.id, text_msg.message_id)
 
     video_path = "videos/sauna_stove_instruction.mp4"
+
+    if not os.path.exists(video_path):
+        await callback.message.answer("📹 Видео временно недоступно (файл не найден)")
+        try:
+            await callback.answer()
+        except:
+            pass
+        return
+
+    file_size_mb = os.path.getsize(video_path) / (1024 * 1024)
+    logging.info(f"Размер видео парной: {file_size_mb:.1f} МБ")
+
+    if file_size_mb > 20:
+        await callback.message.answer(
+            "📹 <b>Видео по банной печи загружается...</b>\n\n"
+            "Оно немного большое — подождите 10–20 секунд ⏳",
+            parse_mode="HTML"
+        )
+
     try:
         video = FSInputFile(video_path)
         video_msg = await callback.message.answer_video(
@@ -425,13 +448,13 @@ async def show_sauna_rules(callback: types.CallbackQuery):
         )
         await message_store.add(callback.from_user.id, video_msg.message_id)
     except Exception as e:
-        logging.error(f"Ошибка загрузки видео банной печи: {e}")
-        error_msg = await callback.message.answer(
-            "📹 Видео временно недоступно",
+        logging.error(f"Ошибка отправки видео парной: {e}")
+        await callback.message.answer(
+            "📹 <b>Видео по банной печи временно недоступно</b>\n\n"
+            "Идёт загрузка большого файла. Попробуйте позже!",
             parse_mode="HTML",
             reply_markup=instruction_video_kb()
         )
-        await message_store.add(callback.from_user.id, error_msg.message_id)
     try:
         await callback.answer()
     except:
