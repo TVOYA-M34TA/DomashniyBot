@@ -49,11 +49,11 @@ message_store = MessageStore()
 def main_menu_kb():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📜 Правила", callback_data="show_rules")],
+        [InlineKeyboardButton(text="🔥 Правила парной", callback_data="show_sauna_rules")],
         [InlineKeyboardButton(text="🛠️ Инструкции", callback_data="show_instructions")],
         [InlineKeyboardButton(text="🏛️ Интересные места", callback_data="show_places")],
-        [InlineKeyboardButton(text="👤 Связь", callback_data="show_contacts")],
         [InlineKeyboardButton(text="💰 Дополнительно можно", callback_data="show_extra_services")],
-        [InlineKeyboardButton(text="🔥 Правила парной", callback_data="show_sauna_rules")]
+        [InlineKeyboardButton(text="👤 Связь", callback_data="show_contacts")]
     ])
 
 def rules_full_kb():
@@ -66,13 +66,13 @@ def instructions_kb():
         [InlineKeyboardButton(text="🚪 Дверь", callback_data="instruction_door")],
         [InlineKeyboardButton(text="🔥 Варочная панель", callback_data="instruction_stove")],
         [InlineKeyboardButton(text="⚠️ Ошибка на варочной панели", callback_data="instruction_stove_error")],
+        [InlineKeyboardButton(text="☕ Кофемашина", callback_data="instruction_coffee")],
         [InlineKeyboardButton(text="🧼 Посудомойка", callback_data="instruction_dishwasher")],
         [InlineKeyboardButton(text="🚧 Ворота", callback_data="instruction_gate")],
         [InlineKeyboardButton(text="⬅️ Назад в меню", callback_data="back_to_main")]
     ])
 
 def instruction_video_kb():
-    """Кнопки под КАЖДЫМ видео (в т.ч. в Правилах парной)"""
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="⬅️ Назад к инструкциям", callback_data="show_instructions")],
         [InlineKeyboardButton(text="🏠 В главное меню", callback_data="back_to_main")]
@@ -137,7 +137,7 @@ async def start_handler(message: types.Message):
         "🚗 <b>Парковка:</b>\n• Только в пределах парковочных мест\n• Рассчитана на 2 авто\n\n"
         "🏠 <b>Имущество:</b>\nЕсли что-то случайно сломалось или разбилось, просим сообщить о произошедшем. Так мы сможем успеть купить или починить перед следующим заездом.\n• Намеренная или дорогостоящая порча имущества - высчитывается из депозита.\n\n"
         "🧹 <b>Чистота:</b>\nПросим вас перед отъездом помыть посуду, собрать и выбросить мусор в зеленый бак.\nЕсли вы не успеваете, то мы можем сделать это за вас:\n"
-        "• Помыть посуду - от 300 руб.\n• Вынести мусор - от 500 руб.\n• Уборка территории от мусора - от 1000 руб.\n• Уборка за питомцем - от 2000 руб.\n• Убрать листья от веников - от 500 руб.\n• Отмыть стены и потолок от грязи в парной - от 5000 руб.\n\n"
+        "• Помыть посуду - от 300 руб.\n• Вынести мусор - от 500 руб.\n• Уборка территории от мусора - от 1000 руб.\n• Уборка за питомцем - от 2000 руб.\n• Отмыть стены и потолок от грязи в парной - от 5000 руб.\n\n"
         "🚭 <b>Курение:</b>\n• В доме и на веранде курение сигарет, кальянов и любых нагревательных систем под запретом\n• 10.000 руб. за озонирование\n• Окурки только в пепельницы\n\n"
         "⚠️ <b>Безопасность:</b>\n• Костер только в костровой зоне\n• НЕ отключать электрощиток, камеры, бойлер\n• НЕ сушить одежду на конвекторах\n\n"
         "<b>Соблюдение правил - залог вашей безопасности и комфортного отдыха!</b>\n\n"
@@ -153,6 +153,7 @@ async def start_handler(message: types.Message):
     )
     await message_store.add(user_id, rules_msg.message_id)
 
+
 @dp.callback_query(F.data == "accept_rules")
 async def accept_rules(callback: types.CallbackQuery):
     user_id = callback.from_user.id
@@ -164,11 +165,30 @@ async def accept_rules(callback: types.CallbackQuery):
         parse_mode="HTML",
         reply_markup=social_kb()
     )
-    menu = await callback.message.answer("Выберите действие:", reply_markup=main_menu_kb())
-
     await message_store.add(user_id, welcome.message_id)
-    await message_store.add(user_id, menu.message_id)
-    await callback.answer()
+
+    try:
+        banner_photo = FSInputFile("pic/banner.jpg")
+        banner_msg = await callback.message.answer_photo(
+            photo=banner_photo,
+            caption="🏡 <b>Дом.Баня.Дача</b> — ваш идеальный отдых ждёт!\n\nВыберите действие:",
+            parse_mode="HTML",
+            reply_markup=main_menu_kb()
+        )
+    except Exception as e:
+        logging.error(f"Не удалось загрузить баннер: {e}")
+        banner_msg = await callback.message.answer(
+            "🏡 <b>Дом.Баня.Дача</b> — ваш идеальный отдых ждёт!\n\nВыберите действие:",
+            parse_mode="HTML",
+            reply_markup=main_menu_kb()
+        )
+    await message_store.add(user_id, banner_msg.message_id)
+
+    try:
+        await callback.answer()
+    except:
+        pass  # если query устарел — ничего страшного
+
 
 @dp.callback_query(F.data == "back_to_main")
 async def back_to_main(callback: types.CallbackQuery):
@@ -181,11 +201,29 @@ async def back_to_main(callback: types.CallbackQuery):
         parse_mode="HTML",
         reply_markup=social_kb()
     )
-    menu = await callback.message.answer("Выберите действие:", reply_markup=main_menu_kb())
-
     await message_store.add(user_id, welcome.message_id)
-    await message_store.add(user_id, menu.message_id)
-    await callback.answer()
+
+    try:
+        banner_photo = FSInputFile("pic/banner.jpg")
+        banner_msg = await callback.message.answer_photo(
+            photo=banner_photo,
+            caption="🏡 <b>Дом.Баня.Дача</b> — ваш идеальный отдых ждёт!\n\nВыберите действие:",
+            parse_mode="HTML",
+            reply_markup=main_menu_kb()
+        )
+    except Exception:
+        banner_msg = await callback.message.answer(
+            "🏡 <b>Дом.Баня.Дача</b> — ваш идеальный отдых ждёт!\n\nВыберите действие:",
+            parse_mode="HTML",
+            reply_markup=main_menu_kb()
+        )
+    await message_store.add(user_id, banner_msg.message_id)
+
+    try:
+        await callback.answer()
+    except:
+        pass
+
 
 @dp.callback_query(F.data == "show_rules")
 async def show_rules(callback: types.CallbackQuery):
@@ -197,7 +235,7 @@ async def show_rules(callback: types.CallbackQuery):
         "🚗 <b>Парковка:</b>\n• Только в пределах парковочных мест\n• Рассчитана на 2 авто\n\n"
         "🏠 <b>Имущество:</b>\nЕсли что-то случайно сломалось или разбилось, просим сообщить о произошедшем. Так мы сможем успеть купить или починить перед следующим заездом.\n• Намеренная или дорогостоящая порча имущества - высчитывается из депозита.\n\n"
         "🧹 <b>Чистота:</b>\nПросим вас перед отъездом помыть посуду, собрать и выбросить мусор в зеленый бак.\nЕсли вы не успеваете, то мы можем сделать это за вас:\n"
-        "• Помыть посуду - от 300 руб.\n• Вынести мусор - от 500 руб.\n• Уборка территории от мусора - от 1000 руб.\n• Уборка за питомцем - от 2000 руб.\n• Убрать листья от веников - от 500 руб.\n• Отмыть стены и потолок от грязи в парной - от 5000 руб.\n\n"
+        "• Помыть посуду - от 300 руб.\n• Вынести мусор - от 500 руб.\n• Уборка территории от мусора - от 1000 руб.\n• Уборка за питомцем - от 2000 руб.\n• Отмыть стены и потолок от грязи в парной - от 5000 руб.\n\n"
         "🚭 <b>Курение:</b>\n• В доме и на веранде курение сигарет, кальянов и любых нагревательных систем под запретом\n• 10.000 руб. за озонирование\n• Окурки только в пепельницы\n\n"
         "⚠️ <b>Безопасность:</b>\n• Костер только в костровой зоне\n• НЕ отключать электрощиток, камеры, бойлер\n• НЕ сушить одежду на конвекторах\n\n"
         "<b>Соблюдение правил - залог вашей безопасности и комфортного отдыха!</b>"
@@ -205,7 +243,11 @@ async def show_rules(callback: types.CallbackQuery):
 
     msg = await callback.message.answer(rules_text, parse_mode="HTML", reply_markup=rules_full_kb())
     await message_store.add(callback.from_user.id, msg.message_id)
-    await callback.answer()
+    try:
+        await callback.answer()
+    except:
+        pass
+
 
 @dp.callback_query(F.data == "show_instructions")
 async def show_instructions_menu(callback: types.CallbackQuery):
@@ -216,7 +258,11 @@ async def show_instructions_menu(callback: types.CallbackQuery):
         reply_markup=instructions_kb()
     )
     await message_store.add(callback.from_user.id, msg.message_id)
-    await callback.answer()
+    try:
+        await callback.answer()
+    except:
+        pass
+
 
 @dp.callback_query(F.data.startswith("instruction_"))
 async def handle_instruction(callback: types.CallbackQuery):
@@ -227,6 +273,7 @@ async def handle_instruction(callback: types.CallbackQuery):
         'door': "🚪 <b>Инструкция: Как открыть/закрыть дверь</b>",
         'stove': "🔥 <b>Инструкция: Варочная панель</b>",
         'stove_error': "⚠️ <b>Ошибка на варочной панели</b>\nКак снять блокировку и сбросить ошибку",
+        'coffee': "☕ <b>Инструкция: Кофемашина</b>\nПриготовление кофе и уход",
         'dishwasher': "🧼 <b>Инструкция: Посудомоечная машина</b>\nЗагрузка и запуск",
         'gate': "🚧 <b>Инструкция: Ворота</b>\nОткрытие и блокировка"
     }
@@ -235,6 +282,7 @@ async def handle_instruction(callback: types.CallbackQuery):
         'door': "door_instruction.mp4",
         'stove': "stove_instruction.mp4",
         'stove_error': "stove_error_instruction.mp4",
+        'coffee': "coffee_instruction.mp4",
         'dishwasher': "dishwasher_instruction.mp4",
         'gate': "gate_instruction.mp4"
     }
@@ -242,10 +290,45 @@ async def handle_instruction(callback: types.CallbackQuery):
     filename = video_files.get(instr)
     if not filename:
         await callback.message.answer("❌ Инструкция не найдена")
-        await callback.answer()
+        try:
+            await callback.answer()
+        except:
+            pass
         return
 
     video_path = f"videos/{filename}"
+    logging.info(f"Попытка загрузить видео: {video_path}")
+
+    if not os.path.exists(video_path):
+        logging.error(f"ФАЙЛ НЕ НАЙДЕН: {video_path}")
+        await callback.message.answer(
+            "📹 <b>Видеоинструкция по кофемашине временно недоступна</b>\n\n"
+            "Файл не найден на сервере. Скоро исправим!",
+            parse_mode="HTML",
+            reply_markup=instruction_video_kb()
+        )
+        try:
+            await callback.answer()
+        except:
+            pass
+        return
+
+    file_size_mb = os.path.getsize(video_path) / (1024 * 1024)
+    logging.info(f"Размер файла {filename}: {file_size_mb:.1f} МБ")
+
+    if file_size_mb > 50:
+        logging.warning(f"ВИДЕО СЛИШКОМ БОЛЬШОЕ: {file_size_mb:.1f} МБ")
+        await callback.message.answer(
+            "📹 <b>Видеоинструкция по кофемашине временно недоступна</b>\n\n"
+            "Видео слишком большое для загрузки. Работаем над оптимизацией!",
+            parse_mode="HTML",
+            reply_markup=instruction_video_kb()
+        )
+        try:
+            await callback.answer()
+        except:
+            pass
+        return
 
     try:
         video = FSInputFile(video_path)
@@ -253,18 +336,22 @@ async def handle_instruction(callback: types.CallbackQuery):
             video=video,
             caption=captions.get(instr, "<b>Видеоинструкция</b>"),
             parse_mode="HTML",
-            reply_markup=instruction_video_kb()  # ← КНОПКИ ЕСТЬ ЗДЕСЬ!
+            reply_markup=instruction_video_kb()
         )
         await message_store.add(callback.from_user.id, sent.message_id)
+        logging.info(f"Видео {filename} успешно отправлено")
     except Exception as e:
-        logging.error(f"Ошибка загрузки видео {filename}: {e}")
-        sent = await callback.message.answer(
-            "📹 <b>Видеоинструкция временно недоступна</b>",
+        logging.error(f"КРИТИЧЕСКАЯ ОШИБКА при отправке {filename}: {e}")
+        await callback.message.answer(
+            "📹 <b>Видеоинструкция по кофемашине временно недоступна</b>\n\n"
+            "Произошла ошибка загрузки. Попробуйте позже.",
             parse_mode="HTML",
-            reply_markup=instruction_video_kb()  # ← И ПРИ ОШИБКЕ ТОЖЕ!
+            reply_markup=instruction_video_kb()
         )
-        await message_store.add(callback.from_user.id, sent.message_id)
-    await callback.answer()
+    try:
+        await callback.answer()
+    except:
+        pass
 
 @dp.callback_query(F.data == "show_contacts")
 async def show_contacts(callback: types.CallbackQuery):
@@ -275,7 +362,11 @@ async def show_contacts(callback: types.CallbackQuery):
         reply_markup=contact_kb()
     )
     await message_store.add(callback.from_user.id, msg.message_id)
-    await callback.answer()
+    try:
+        await callback.answer()
+    except:
+        pass
+
 
 @dp.callback_query(F.data == "show_extra_services")
 async def show_extra_services(callback: types.CallbackQuery):
@@ -284,7 +375,7 @@ async def show_extra_services(callback: types.CallbackQuery):
         "💰 <b>Дополнительно можно заказать:</b>\n\n"
         "🔥 <b>Помощь в растопке банной печи</b> — 2000 руб. (одна топка)\n"
         "🪵 <b>Дрова</b> — 500 руб. за 10 дров\n"
-        "🛏️ <b>Доп. комплект постельного белья и полотенец</b> — 1500 руб.\n"
+        "🛏️ <b>Доп. комплект постельного белья и полотенцев</b> — 1500 руб.\n"
         "🛁 <b>Халат</b> — 400 руб.\n\n"
         "<i>Заказывайте заранее — сделаем отдых ещё комфортнее!</i>"
     )
@@ -296,7 +387,11 @@ async def show_extra_services(callback: types.CallbackQuery):
         ])
     )
     await message_store.add(callback.from_user.id, msg.message_id)
-    await callback.answer()
+    try:
+        await callback.answer()
+    except:
+        pass
+
 
 @dp.callback_query(F.data == "show_sauna_rules")
 async def show_sauna_rules(callback: types.CallbackQuery):
@@ -326,7 +421,7 @@ async def show_sauna_rules(callback: types.CallbackQuery):
             video=video,
             caption="🔥 <b>Как правильно топить банную печь</b>",
             parse_mode="HTML",
-            reply_markup=instruction_video_kb()  # ← КНОПКИ ЕСТЬ И ЗДЕСЬ!
+            reply_markup=instruction_video_kb()
         )
         await message_store.add(callback.from_user.id, video_msg.message_id)
     except Exception as e:
@@ -337,14 +432,21 @@ async def show_sauna_rules(callback: types.CallbackQuery):
             reply_markup=instruction_video_kb()
         )
         await message_store.add(callback.from_user.id, error_msg.message_id)
-    await callback.answer()
+    try:
+        await callback.answer()
+    except:
+        pass
 
-# === Интересные места ===
+
 @dp.callback_query(F.data == "show_places")
 async def show_places_menu(callback: types.CallbackQuery):
     await message_store.clean(bot, callback.from_user.id, callback.message.chat.id)
     await show_place(callback, 0)
-    await callback.answer()
+    try:
+        await callback.answer()
+    except:
+        pass
+
 
 async def show_place(query: types.CallbackQuery, index: int):
     place = PLACES_DATA[index]
@@ -362,27 +464,41 @@ async def show_place(query: types.CallbackQuery, index: int):
         )
     await message_store.add(user_id, sent.message_id)
 
+
 @dp.callback_query(F.data.startswith("place_"))
 async def handle_place_navigation(callback: types.CallbackQuery):
     if callback.data == "ignore":
-        await callback.answer()
+        try:
+            await callback.answer()
+        except:
+            pass
         return
+
     parts = callback.data.split("_")
     if len(parts) != 3:
-        await callback.answer()
+        try:
+            await callback.answer()
+        except:
+            pass
         return
+
     action = parts[1]
     current_index = int(parts[2])
     new_index = (current_index - 1) % len(PLACES_DATA) if action == "prev" else (current_index + 1) % len(PLACES_DATA)
+
     await message_store.clean(bot, callback.from_user.id, callback.message.chat.id)
     await show_place(callback, new_index)
-    await callback.answer()
+    try:
+        await callback.answer()
+    except:
+        pass
 
-# === Запуск бота ===
+
 async def main():
     print("🏡 Дом.Баня.Дача — Бот успешно запущен!")
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
+
 
 if __name__ == "__main__":
     asyncio.run(main())
